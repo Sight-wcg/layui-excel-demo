@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>示例演示</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 注意：项目正式环境请勿引用该地址 -->
+  <link href="https://unpkg.com/layui@2.8.0-rc.15/dist/css/layui.css" rel="stylesheet">
+</head>
+
+<body>
+  <div style="display: flex; align-items: center; justify-content: center;">
+    <table id="dataTable" lay-filter="test"></table>
+  </div>
+
+  <!-- 注意：项目正式环境请勿引用该地址 -->
+  <script src="https://unpkg.com/layui@2.8.0-rc.15/dist/layui.js"></script>
+  <script>
+    layui.config({
+      base: './layui_exts/'
+    })
+    layui.use(() => {
+      const { table, jquery: $} = layui;
+
+      var data=new Array(5).fill({}).map((_,idx) => {
+        return {
+          id: idx,
+          username: `name${idx}`,
+          city: `城市${idx}`,
+          picture: 'https://img0.baidu.com/it/u=1588905690,3738625613&fm=253&fmt=auto&app=120&f=JPEG?w=801&h=500',
+        }
+      })
+
+      const insTb = table.render({
+        elem: '#dataTable',
+        data: data,
+         width: 'auto',
+         height: 'auto',
+        toolbar: true,
+        defaultToolbar: ['filter', 'print', {
+          title: '导出'
+          ,layEvent: 'LAYTABLE_EXPORTS'
+          ,icon: 'layui-icon-export'
+        }],
+        cols: [[
+          {type: 'checkbox',},
+          {field: 'id',width: 80,title: 'ID',sort: true,},
+          {field: 'username',width: 80,title: '用户名'},
+          {field: 'city',width: 80,title: '城市'},
+          {field: 'picture',width: 80,title: '图片',templet: function(d){
+            return `<span><img src="${d.picture}"></img></span>`
+          }},
+        ]],
+        loading: false,
+        page: false,
+      });
+
+      table.on('toolbar(test)',function(obj) {
+        var checkStatus=table.checkStatus(obj.config.id);
+        switch(obj.event) {
+          case 'LAYTABLE_EXPORTS':
+            exportData({
+              cols: insTb.config.cols,
+              data: table.cache.dataTable, 
+              fileName: 'test', 
+              ext: 'xlsx'
+            })
+            break;
+        };
+      });
+
+      function exportData(options){
+        layui.use(['excel'],async () => {
+          const {excel} = layui;
+          const {cols, data, fileName, ext, pictFields} = options;
+          const titles={},fields=[],pictures=[];
+
+          for (let index = 0; index < data.length; index++) {
+            const d = await convertImgToBase64(data[index].picture,'jpg')
+            pictures.push(d.split(',')[1])
+          }
+
+          table.eachCols(undefined,function(i,item) {
+            if(item.type==='normal'&&!item.hide) {
+              var field=item.field;
+              fields.push(field);
+              titles[field]=item.title||'';
+            }
+          },cols);
+
+          var filteredData=excel.filterExportData(data, fields);
+          filteredData.unshift(titles);
+          excel.exportExcel(
+              {sheet1: filteredData},
+              `${fileName || `用户表${new Date().toLocaleString()}`}.${ext}`,
+              ext,
+              {
+                extend: {
+                  sheet1: {
+                    '!images': [ //需要为每个图片设置位置, 根据需求封装 
+                      {
+                        name: 'image1.jpg',
+                        data: pictures[0],
+                        opts: {base64: true},
+                        position: {
+                          type: 'twoCellAnchor',
+                          attrs: {editAs: 'oneCell'},
+                          from: {col: 3,row: 1,},
+                          to: {col: 4,row: 2,}
+                        },
+                      },
+                      {
+                        name: 'image2.jpg',
+                        data: pictures[1],
+                        opts: {base64: true},
+                        position: {
+                          type: 'twoCellAnchor',
+                          attrs: {editAs: 'oneCell'},
+                          from: {col: 3,row: 2,},
+                          to: {col: 4,row: 3,}
+                        },
+                      },
+                      {
+                        name: 'image3.jpg',
+                        data: pictures[2],
+                        opts: {base64: true}, 
+                        position: {
+                          type: 'twoCellAnchor',
+                          attrs: {editAs: 'oneCell'},
+                          from: {col: 3,row: 3,},
+                          to: {col: 4,row: 4,}
+                        },
+                      },
+                    ]
+                  }
+                }
+              }
+            );
+
+
+        })
+      }
+
+      function convertImgToBase64(url, ext) {
+        return new Promise((resolve,reject) => {
+          let canvas=document.createElement("canvas");
+          const ctx=canvas.getContext("2d");
+          let img=new Image();
+          img.crossOrigin="Anonymous"; //解决Canvas.toDataURL 图片跨域问题
+          img.src=url;
+          img.onload=function() {
+            canvas.height=img.height;
+            canvas.width=img.width;
+            ctx.drawImage(img,0,0,img.width,img.height); //参数可自定义
+            const dataURL=canvas.toDataURL(`image/${ext}`,1); //获取Base64编码
+            resolve(dataURL);
+            canvas=null; //清除canvas元素
+            img=null; //清除img元素
+          };
+          img.onerror=function() {
+            reject(new Error("Could not load image at "+url));
+          };
+        });
+      }
+
+    });
+  </script>
+
+</body>
+
+</html>
