@@ -80,10 +80,16 @@
           const {cols, data, fileName, ext} = options;
           const titles={},fields=[],pictures=[];
 
+          const asyncConcurrencyTask=[];
           for (let index = 0; index < data.length; index++) {
-            const d = await convertImgToBase64(data[index].picture,'jpg')
-            pictures.push(d.split(',')[1])
+            asyncConcurrencyTask.push(new Promise((resolve,reject) => {
+              convertImgToBase64(data[index].picture,'jpg').then(val => {
+                pictures.push(val.split(',')[1])
+                resolve()
+              })
+            }))
           }
+          await Promise.allSettled(asyncConcurrencyTask);
 
           table.eachCols(undefined,function(i,item) {
             if(item.type==='normal'&&!item.hide) {
@@ -102,7 +108,7 @@
               {
                 extend: {
                   sheet1: {
-                    '!images': [ //需要为每个图片设置位置, 根据需求封装 
+                    '!images': [ //需要为每个图片设置位置, 根据需求封装, 此处仅演示用法 
                       {
                         name: 'image1.jpg',
                         data: pictures[0],
